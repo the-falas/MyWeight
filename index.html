@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Fast — Intermittent Fasting Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --orange: #EF9F27;
+    --orange-light: #FAEEDA;
+    --orange-dark: #633806;
+    --teal: #1D9E75;
+    --teal-light: #E1F5EE;
+    --teal-dark: #085041;
+    --bg: #FFFFFF;
+    --bg2: #F5F4F0;
+    --bg3: #ECEAE4;
+    --txt: #1A1918;
+    --txt2: #6B6960;
+    --txt3: #9B9990;
+    --border: rgba(0,0,0,0.10);
+    --border2: rgba(0,0,0,0.18);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1A1918;
+      --bg2: #242321;
+      --bg3: #2E2C2A;
+      --txt: #F0EDE8;
+      --txt2: #9B9890;
+      --txt3: #6B6860;
+      --border: rgba(255,255,255,0.10);
+      --border2: rgba(255,255,255,0.18);
+      --orange-light: #3A2508;
+      --orange-dark: #FAC775;
+      --teal-light: #042C1E;
+      --teal-dark: #5DCAA5;
+    }
+  }
+
+  html, body { height: 100%; background: var(--bg3); font-family: 'DM Sans', sans-serif; color: var(--txt); }
+
+  .shell {
+    max-width: 420px;
+    min-height: 100vh;
+    margin: 0 auto;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    border-left: 0.5px solid var(--border);
+    border-right: 0.5px solid var(--border);
+  }
+
+  .top-bar {
+    padding: 18px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .app-name { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; color: var(--txt); }
+  .app-name span { color: var(--orange); }
+  .streak-badge {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--orange-light); color: var(--orange-dark);
+    padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  }
+
+  .nav {
+    display: flex;
+    border-bottom: 0.5px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .nav-btn {
+    flex: 1; padding: 11px 4px 10px; font-size: 11px; font-weight: 500;
+    color: var(--txt2); background: none; border: none; cursor: pointer;
+    border-bottom: 2px solid transparent; transition: all 0.18s;
+    font-family: 'DM Sans', sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .nav-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nav-btn.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+  .content { flex: 1; padding: 20px; overflow-y: auto; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* Mode pills */
+  .mode-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 22px; }
+  .mode-pill {
+    padding: 6px 12px; font-size: 12px; font-weight: 500;
+    border: 0.5px solid var(--border2); border-radius: 20px;
+    cursor: pointer; background: var(--bg); color: var(--txt2);
+    transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+  }
+  .mode-pill.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+
+  /* Ring */
+  .ring-wrap { display: flex; justify-content: center; margin: 4px 0 22px; position: relative; }
+  .ring-wrap svg { width: 220px; height: 220px; }
+  .ring-center {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); text-align: center; width: 140px;
+  }
+  .ring-time { font-size: 32px; font-weight: 600; color: var(--txt); line-height: 1; font-family: 'DM Mono', monospace; letter-spacing: -1px; }
+  .ring-sublabel { font-size: 11px; color: var(--txt3); margin-top: 5px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .ring-phase { font-size: 13px; font-weight: 500; margin-top: 8px; }
+  .ring-phase.fasting { color: var(--orange); }
+  .ring-phase.eating { color: var(--teal); }
+
+  /* Stat cards */
+  .stats-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-bottom: 18px; }
+  .stat-card { background: var(--bg2); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .stat-label { font-size: 11px; color: var(--txt2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .stat-val { font-size: 22px; font-weight: 600; color: var(--txt); }
+  .stat-val.accent { color: var(--orange); }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 8px; margin-bottom: 20px; }
+  .btn-main {
+    flex: 1; padding: 14px; font-size: 14px; font-weight: 500;
+    border-radius: var(--radius); border: none; cursor: pointer;
+    transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-start { background: var(--orange); color: #fff; }
+  .btn-start:hover { opacity: 0.9; }
+  .btn-start:active { transform: scale(0.98); }
+  .btn-secondary { background: var(--bg2); color: var(--txt); border: 0.5px solid var(--border2); flex: 0; padding: 14px 18px; font-size: 13px; }
+  .btn-secondary:hover { background: var(--bg3); }
+
+  /* Stage card */
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px; }
+  .card-title { font-size: 11px; color: var(--txt2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stage-items { display: flex; flex-direction: column; gap: 8px; }
+  .stage-item { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.4; }
+  .stage-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .stage-dot.done { background: var(--teal); }
+  .stage-dot.now { background: var(--orange); box-shadow: 0 0 0 3px var(--orange-light); }
+  .stage-dot.soon { background: var(--border2); }
+  .stage-text.done { color: var(--txt2); }
+  .stage-text.now { color: var(--txt); font-weight: 500; }
+  .stage-text.soon { color: var(--txt3); }
+  .stage-name { font-weight: 500; }
+
+  /* Schedule */
+  .window-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .time-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 500; padding: 7px 13px;
+    border-radius: var(--radius-sm);
+  }
+  .time-badge.fast { background: var(--orange-light); color: var(--orange-dark); }
+  .time-badge.eat { background: var(--teal-light); color: var(--teal-dark); }
+  .edit-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 0.5px solid var(--border); }
+  .edit-row label { font-size: 12px; color: var(--txt2); flex-shrink: 0; }
+  .edit-row input[type=time] {
+    font-size: 14px; padding: 6px 10px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm); background: var(--bg2); color: var(--txt);
+    font-family: 'DM Mono', monospace;
+  }
+  .mode-desc { font-size: 13px; color: var(--txt2); line-height: 1.65; }
+
+  /* Calendar */
+  .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .cal-title { font-size: 15px; font-weight: 500; color: var(--txt); }
+  .cal-nav { display: flex; gap: 6px; }
+  .cal-nav button {
+    background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--txt2); font-size: 14px; width: 30px; height: 30px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-nav button:hover { background: var(--bg3); }
+  .cal-days-header { display: grid; grid-template-columns: repeat(7,1fr); text-align: center; font-size: 10px; color: var(--txt3); margin-bottom: 8px; letter-spacing: 0.3px; font-weight: 500; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+  .cal-cell {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; border-radius: 50%; color: var(--txt2); cursor: default;
+  }
+  .cal-cell.today { background: var(--bg2); color: var(--txt); font-weight: 500; }
+  .cal-cell.fasted { background: var(--orange); color: #fff; font-weight: 500; }
+  .cal-cell.partial { background: var(--orange-light); color: var(--orange-dark); }
+
+  .streak-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 0.5px solid var(--border); }
+  .streak-val { font-size: 24px; font-weight: 600; color: var(--orange); font-family: 'DM Mono', monospace; }
+  .streak-info { display: flex; flex-direction: column; }
+  .streak-main { font-size: 13px; font-weight: 500; color: var(--txt); }
+  .streak-sub { font-size: 11px; color: var(--txt2); }
+
+  /* Log */
+  .log-input {
+    width: 100%; font-size: 14px; padding: 9px 12px;
+    border: 0.5px solid var(--border2); border-radius: var(--radius-sm);
+    background: var(--bg2); color: var(--txt); font-family: 'DM Sans', sans-serif;
+    outline: none;
+  }
+  .log-input:focus { border-color: var(--orange); }
+  .log-input-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .log-input-row .log-input { flex: 1; }
+  .log-unit { font-size: 12px; color: var(--txt2); flex-shrink: 0; }
+  .log-btn {
+    padding: 9px 14px; font-size: 13px; font-weight: 500;
+    background: var(--bg2); color: var(--txt); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm); cursor: pointer; font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+  }
+  .log-btn:hover { background: var(--bg3); }
+  .log-list { margin-top: 10px; display: flex; flex-direction: column; gap: 0; }
+  .log-entry {
+    display: flex; justify-content: space-between; font-size: 12px;
+    padding: 7px 0; border-bottom: 0.5px solid var(--border); color: var(--txt2);
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-entry-val { font-weight: 500; color: var(--txt); font-family: 'DM Mono', monospace; }
+
+  /* Water */
+  .water-progress { display: flex; gap: 5px; margin: 10px 0 6px; flex-wrap: wrap; }
+  .water-cup {
+    width: 30px; height: 38px; border: 1.5px solid var(--teal); border-radius: 0 0 5px 5px;
+    cursor: pointer; position: relative; overflow: hidden; transition: opacity 0.15s;
+  }
+  .water-cup:hover { opacity: 0.8; }
+  .water-fill { position: absolute; bottom: 0; left: 0; right: 0; background: var(--teal); opacity: 0.4; transition: height 0.25s; }
+  .water-lbl { font-size: 12px; color: var(--txt2); }
+
+  textarea.log-input { resize: none; line-height: 1.5; }
+
+  @media (max-width: 440px) {
+    .shell { max-width: 100%; border: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="top-bar">
+    <div class="app-name"><span>fast</span>track</div>
+    <div class="streak-badge" id="top-streak">🔥 5 day streak</div>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" onclick="showTab('timer', this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+      Timer
+    </button>
+    <button class="nav-btn" onclick="showTab('schedule', this)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Schedule
+    </button>
+    <button class="nav-btn" onclick="showTab('history', this)">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      History
+    </button>
+    <button class="nav-btn" onclick="showTab('log', this)">
+      <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Log
+    </button>
+  </div>
+
+  <div class="content">
+
+    <!-- TIMER -->
+    <div id="tab-timer" class="section active">
+      <div class="mode-pills">
+        <div class="mode-pill active" onclick="setMode(this,'12:12',12,12)">12:12</div>
+        <div class="mode-pill" onclick="setMode(this,'16:8',16,8)">16:8</div>
+        <div class="mode-pill" onclick="setMode(this,'18:6',18,6)">18:6</div>
+        <div class="mode-pill" onclick="setMode(this,'24hr',24,0)">24-hour</div>
+        <div class="mode-pill" onclick="setMode(this,'5:2',0,0)">5:2</div>
+      </div>
+
+      <div class="ring-wrap">
+        <svg viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r="92" fill="none" stroke="var(--border)" stroke-width="13"/>
+          <circle id="ring-progress" cx="110" cy="110" r="92" fill="none" stroke="var(--orange)" stroke-width="13"
+            stroke-linecap="round" stroke-dasharray="578.05" stroke-dashoffset="578.05"
+            transform="rotate(-90 110 110)" style="transition: stroke-dashoffset 0.5s, stroke 0.3s;"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-time" id="ring-time">18:00:00</div>
+          <div class="ring-sublabel" id="ring-sublabel">remaining</div>
+          <div class="ring-phase fasting" id="ring-phase">Fasting</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Fast window</div>
+          <div class="stat-val accent" id="stat-fast">18h</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Eat window</div>
+          <div class="stat-val" id="stat-eat">6h</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-main btn-start" id="btn-start" onclick="toggleFast()">Start fast</button>
+        <button class="btn-main btn-secondary" onclick="resetFast()">Reset</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Metabolic stages</div>
+        <div class="stage-items" id="stage-list"></div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE -->
+    <div id="tab-schedule" class="section">
+      <div class="card">
+        <div class="card-title">Your eating window</div>
+        <div class="window-row">
+          <span class="time-badge fast" id="sched-fast-badge">⏳ Fast 6 PM – 12 PM</span>
+          <span class="time-badge eat" id="sched-eat-badge">🥗 Eat 12 PM – 6 PM</span>
+        </div>
+        <div class="edit-row">
+          <label>Eating starts at</label>
+          <input type="time" id="eat-start-input" value="12:00" onchange="updateSchedule(this.value)">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" id="mode-label-title">About 18:6</div>
+        <p class="mode-desc" id="mode-desc">Fast for 18 hours, then eat within a 6-hour window. Popular for weight management and metabolic health. Most people skip breakfast, eating from noon to 6 PM.</p>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="tab-history" class="section">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Current streak</div>
+          <div class="stat-val accent">5</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This month</div>
+          <div class="stat-val">18 / 30</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cal-header">
+          <span class="cal-title" id="cal-month-label">June 2026</span>
+          <div class="cal-nav">
+            <button onclick="changeMonth(-1)">&#8249;</button>
+            <button onclick="changeMonth(1)">&#8250;</button>
+          </div>
+        </div>
+        <div class="cal-days-header">
+          <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="streak-row">
+          <span class="streak-val">5</span>
+          <div class="streak-info">
+            <span class="streak-main">day streak 🔥</span>
+            <span class="streak-sub">Keep it going!</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div id="tab-log" class="section">
+      <div class="card">
+        <div class="card-title">Weight log</div>
+        <div class="log-input-row">
+          <input class="log-input" type="number" id="weight-input" placeholder="e.g. 72.5" step="0.1" min="30" max="300">
+          <span class="log-unit">kg</span>
+          <button class="log-btn" onclick="logWeight()">Add</button>
+        </div>
+        <div class="log-list" id="weight-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Water intake</div>
+        <div class="water-progress" id="water-cups"></div>
+        <div class="water-lbl" id="water-label">0 / 8 glasses</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Today's note</div>
+        <textarea class="log-input" id="note-input" rows="3" placeholder="How are you feeling? Any energy levels, hunger notes..."></textarea>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let fastHours = 18, eatHours = 6, currentMode = '18:6';
+let isFasting = false, fastStart = null, tickInterval = null;
+let eatStartHour = 12;
+let calOffset = 0;
+let waterCount = 0;
+let weightLog = [];
+
+const CIRCUMFERENCE = 2 * Math.PI * 92;
+
+const MODES = {
+  '12:12': { fast:12, eat:12, desc:'A gentle entry point. Fast overnight for 12 hours and eat within a 12-hour window — easy to maintain and a great starting protocol for beginners.' },
+  '16:8':  { fast:16, eat:8, desc:'One of the most popular protocols. Skip breakfast and eat between noon and 8 PM. Effective for most people balancing work and social eating.' },
+  '18:6':  { fast:18, eat:6, desc:'Fast for 18 hours, then eat within a 6-hour window. Popular for weight management and metabolic health. Most people eat from noon to 6 PM.' },
+  '24hr':  { fast:24, eat:0, desc:'A full 24-hour fast done once or twice a week, eating normally on other days. Powerful for autophagy and metabolic reset — best for experienced fasters.' },
+  '5:2':   { fast:0,  eat:0, desc:'Eat normally 5 days a week. On 2 non-consecutive days, limit intake to ~500–600 calories. Flexible and sustainable for many lifestyles.' },
+};
+
+const STAGES = [
+  { h:0,  name:'Fed state', desc:'Digesting your last meal, blood sugar elevated.' },
+  { h:3,  name:'Glycogen burning', desc:'Insulin dropping, body switching to stored carbs.' },
+  { h:8,  name:'Glycogen depleted', desc:'Transitioning to fat as primary fuel.' },
+  { h:12, name:'Fat burning begins', desc:'Ketone production starts, mild autophagy.' },
+  { h:16, name:'Ketosis deepens', desc:'Significant fat oxidation, mental clarity.' },
+  { h:18, name:'Autophagy peak', desc:'Cellular cleanup accelerating.' },
+  { h:24, name:'Deep autophagy', desc:'Maximum cellular repair mode.' },
+];
+
+function showTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+function setMode(el, name, fast, eat) {
+  document.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  fastHours = fast; eatHours = eat; currentMode = name;
+  const m = MODES[name];
+  document.getElementById('stat-fast').textContent = fast ? fast + 'h' : '—';
+  document.getElementById('stat-eat').textContent = eat ? eat + 'h' : '—';
+  document.getElementById('mode-desc').textContent = m.desc;
+  document.getElementById('mode-label-title').textContent = 'About ' + name;
+  if (!isFasting) updateRingDisplay(0, fast * 3600);
+  renderStages(0);
+}
+
+function updateRingDisplay(elapsedSec, totalSec) {
+  const pct = totalSec > 0 ? Math.min(elapsedSec / totalSec, 1) : 0;
+  const offset = CIRCUMFERENCE * (1 - pct);
+  document.getElementById('ring-progress').setAttribute('stroke-dashoffset', offset.toFixed(1));
+  const rem = Math.max(totalSec - elapsedSec, 0);
+  const h = Math.floor(rem / 3600), m = Math.floor((rem % 3600) / 60), s = rem % 60;
+  document.getElementById('ring-time').textContent =
+    String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+function renderStages(elapsedH) {
+  const list = document.getElementById('stage-list');
+  list.innerHTML = '';
+  STAGES.filter(s => s.h <= Math.max(fastHours, 12)).forEach(s => {
+    const done = elapsedH > s.h + 0.5;
+    const now = !done && elapsedH >= s.h - 0.5;
+    const state = done ? 'done' : (now ? 'now' : 'soon');
+    list.innerHTML += `<div class="stage-item">
+      <div class="stage-dot ${state}"></div>
+      <span class="stage-text ${state}"><span class="stage-name">${s.h}h — ${s.name}:</span> ${s.desc}</span>
+    </div>`;
+  });
+}
+
+function toggleFast() {
+  const btn = document.getElementById('btn-start');
+  if (!isFasting) {
+    isFasting = true;
+    fastStart = Date.now();
+    btn.textContent = 'End fast';
+    btn.style.background = 'var(--teal)';
+    document.getElementById('ring-progress').setAttribute('stroke', 'var(--teal)');
+    document.getElementById('ring-phase').className = 'ring-phase eating';
+    document.getElementById('ring-phase').textContent = 'In progress';
+    tickInterval = setInterval(tick, 1000);
+    tick();
+  } else {
+    endFast();
+  }
+}
+
+function tick() {
+  const elapsed = Math.floor((Date.now() - fastStart) / 1000);
+  const total = fastHours * 3600;
+  updateRingDisplay(elapsed, total);
+  renderStages(elapsed / 3600);
+  if (elapsed >= total) {
+    document.getElementById('ring-phase').textContent = 'Eating window open 🎉';
+    document.getElementById('ring-phase').className = 'ring-phase eating';
+  }
+}
+
+function endFast() {
+  isFasting = false;
+  clearInterval(tickInterval);
+  const btn = document.getElementById('btn-start');
+  btn.textContent = 'Start fast';
+  btn.style.background = '';
+  document.getElementById('ring-progress').setAttribute('stroke', 'var(--orange)');
+  document.getElementById('ring-phase').className = 'ring-phase fasting';
+  document.getElementById('ring-phase').textContent = 'Fasting';
+  updateRingDisplay(0, fastHours * 3600);
+  renderStages(0);
+}
+
+function resetFast() { endFast(); }
+
+function updateSchedule(val) {
+  const [h, m] = val.split(':').map(Number);
+  eatStartHour = h + m / 60;
+  const endH = eatStartHour + eatHours;
+  const fmt = t => {
+    const hr = Math.floor(t % 24), mn = Math.round((t % 1) * 60);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    return (hr % 12 || 12) + (mn ? ':' + String(mn).padStart(2,'0') : '') + ' ' + ampm;
+  };
+  document.getElementById('sched-eat-badge').textContent = '🥗 Eat ' + fmt(eatStartHour) + ' – ' + fmt(endH);
+  document.getElementById('sched-fast-badge').textContent = '⏳ Fast ' + fmt(endH) + ' – ' + fmt(eatStartHour + 24);
+}
+
+function renderCalendar() {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + calOffset, 1);
+  document.getElementById('cal-month-label').textContent = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const firstDay = d.getDay();
+  const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const today = calOffset === 0 ? now.getDate() : -1;
+  const fasted = [1,2,3,4,5,8,9,10,12,14,15,16,17,18];
+  const partial = [7,13];
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < firstDay; i++) {
+    const c = document.createElement('div');
+    c.className = 'cal-cell';
+    grid.appendChild(c);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    const c = document.createElement('div');
+    c.className = 'cal-cell';
+    c.textContent = i;
+    if (i === today) c.classList.add('today');
+    else if (calOffset === 0 && fasted.includes(i)) c.classList.add('fasted');
+    else if (calOffset === 0 && partial.includes(i)) c.classList.add('partial');
+    grid.appendChild(c);
+  }
+}
+
+function changeMonth(dir) { calOffset += dir; renderCalendar(); }
+
+function renderWater() {
+  const wrap = document.getElementById('water-cups');
+  wrap.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const cup = document.createElement('div');
+    cup.className = 'water-cup';
+    const fill = document.createElement('div');
+    fill.className = 'water-fill';
+    fill.style.height = i < waterCount ? '100%' : '0%';
+    cup.appendChild(fill);
+    cup.onclick = () => { waterCount = i < waterCount ? i : i + 1; renderWater(); };
+    wrap.appendChild(cup);
+  }
+  document.getElementById('water-label').textContent = waterCount + ' / 8 glasses';
+}
+
+function logWeight() {
+  const input = document.getElementById('weight-input');
+  const val = parseFloat(input.value);
+  if (isNaN(val) || val < 30 || val > 300) return;
+  const now = new Date();
+  const timeStr = now.toLocaleDateString('en-CA') + ' ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  weightLog.unshift({ val, time: timeStr });
+  if (weightLog.length > 6) weightLog.pop();
+  input.value = '';
+  const list = document.getElementById('weight-list');
+  list.innerHTML = weightLog.map(e =>
+    `<div class="log-entry"><span>${e.time}</span><span class="log-entry-val">${e.val} kg</span></div>`
+  ).join('');
+}
+
+updateRingDisplay(0, fastHours * 3600);
+renderStages(0);
+updateSchedule('12:00');
+renderCalendar();
+renderWater();
+</script>
+</body>
+</html>
